@@ -11,7 +11,7 @@ typedef struct Heartbeat{
 }Heartbeat;
 
 uint8_t* HeartbeatToByteArray(Heartbeat *heartbeat);
-Heartbeat makeHeartbeat(Header header, uint8_t presenceVec);
+Heartbeat makeHeartbeat();
 Heartbeat ByteArrayToHeartbeat(uint8_t* byteArray);
 
 #endif

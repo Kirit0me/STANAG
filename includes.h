@@ -11,4 +11,6 @@
 #include <windows.h>
 #include <stddef.h>
 
+void printArrayHex(uint8_t* arr, size_t length);
+
 #endif

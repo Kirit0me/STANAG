@@ -6,6 +6,5 @@
 
 void initializeWinsock();
 SOCKET createSocket();
-void printArrayHex(uint8_t* arr, size_t length);
 
 #endif

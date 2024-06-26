@@ -1,6 +1,7 @@
 #include "includes.h"
 #include "header.h"
 #include "acknowledgement.h"
+#include "validation.h"
 
 uint8_t* AckToByteArray(Ack *ack) {
     // Allocate memory for the byte array
@@ -31,4 +32,20 @@ uint8_t* AckToByteArray(Ack *ack) {
     free(headerArray);
 
     return byteArray;
+}
+
+Ack makeAck(uint16_t orgMsgType, uint8_t ackTypeInt) {
+    Header hdr = makeHeader(0x0000, 0x0E, 2345, 5678, 17000 ,0xA0C0);
+    uint8_t* harr = HeaderToByteArray(&hdr);
+    
+    Ack ack;
+    ack.header = hdr;
+    ack.presenceVec = 0x01;
+    memset(ack.timestp, 0, sizeof(ack.timestp)); // Initialize with 0 or set it to the current timestamp
+    memset(ack.orgTimestp, 0, sizeof(ack.orgTimestp)); // Initialize with 0 or set it to the original timestamp
+    ack.orgMsgType = orgMsgType;
+    ack.ackType = (AckType)ackTypeInt; // Cast integer to AckType
+    ack.optChecksum = crc32(harr, 16); // Initialize with 0 or compute the checksum if needed
+
+    return ack;
 }

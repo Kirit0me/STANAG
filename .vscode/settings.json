@@ -2,7 +2,10 @@
     "files.associations": {
         "winsock2.h": "c",
         "ws2tcpip.h": "c",
-        "stddef.h": "c"
+        "stddef.h": "c",
+        "acknowledgement.h": "c",
+        "validation.h": "c",
+        "includes.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

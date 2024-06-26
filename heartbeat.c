@@ -1,5 +1,6 @@
 #include "includes.h"
 #include "header.h"
+#include "validation.h"
 #include "heartbeat.h"
 
 uint8_t* HeartbeatToByteArray(Heartbeat *heartbeat) {
@@ -29,12 +30,13 @@ uint8_t* HeartbeatToByteArray(Heartbeat *heartbeat) {
     return byteArray;
 }
 
-Heartbeat makeHeartbeat(Header header, uint8_t presenceVec) {
+Heartbeat makeHeartbeat() {
     Heartbeat hbeat;
-    uint8_t* harr = HeaderToByteArray(&header);
+    Header hdr = makeHeader(0x0001, 0x06, 2345, 5678, 16002 ,0xA0C0);
+    uint8_t* harr = HeaderToByteArray(&hdr);
 
-    hbeat.header = header;
-    hbeat.presenceVec = presenceVec;
+    hbeat.header = hdr;
+    hbeat.presenceVec = 0x01;
     memcpy(hbeat.timestp, (uint8_t[]){0x01, 0x02, 0x03, 0x04, 0x05}, 5);
     hbeat.optChecksum = crc32(harr, 16);
 

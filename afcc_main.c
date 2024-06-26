@@ -2,6 +2,8 @@
 #include "sock_create.h"
 #include "header.h"
 #include "heartbeat.h"
+#include "acknowledgement.h"
+#include "validation.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -30,13 +32,18 @@ void setupServer2() {
         printf("Received %d bytes: ", bytesReceived);
         printArrayHex(recvArray, bytesReceived);
 
-        // Conditional response
-        if (recvArray[0] == 1) {
-            Header hdr = makeHeader(2, 26, 2346, 5679, 1 ,1);
-            Heartbeat hbeat = makeHeartbeat(hdr, 0x02);
+        size_t recvLength = sizeof(recvArray);
+        uint32_t checksum = *(uint32_t*)(recvArray + recvLength - 4);
+        
+        printf("Checksum of received message: ");
+        printArrayHex((uint8_t*)&checksum, sizeof(checksum));
 
-            uint8_t* responseArray = HeartbeatToByteArray(&hbeat);
-            size_t responseSize = 26;  
+        // Conditional response
+        if (check_msg(recvArray)) {
+            Ack ack = makeAck(16002, check_msg(recvArray));
+
+            uint8_t* responseArray = AckToByteArray(&ack);
+            size_t responseSize = 34;  
 
             int bytesSent = send(clientSocket, (char*)responseArray, responseSize, 0);
             if (bytesSent == SOCKET_ERROR) {

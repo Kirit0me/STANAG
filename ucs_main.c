@@ -38,8 +38,7 @@ void setupServer1() {
         exit(1);
     }
 
-    Header hdr = makeHeader(1, 26, 2345, 5678, 1 ,1);
-    Heartbeat hbeat = makeHeartbeat(hdr, 0x01);
+    Heartbeat hbeat = makeHeartbeat();
 
     uint8_t* array = HeartbeatToByteArray(&hbeat);
     size_t arraySize = 26; 
@@ -53,7 +52,8 @@ void setupServer1() {
         printArrayHex(array, arraySize);
     }
 
-    uint8_t recvArray[26];
+    uint8_t recvArray[34];
+    size_t recvLength = sizeof(recvArray);
     int bytesReceived = recv(clientSocket, (char*)&recvArray, sizeof(recvArray), 0);
 
     if (bytesReceived == SOCKET_ERROR) {
@@ -61,6 +61,11 @@ void setupServer1() {
     } else {
         printf("Received %d bytes: ", bytesReceived);
         printArrayHex(recvArray, bytesReceived);
+
+        uint32_t checksum = *(uint32_t*)(recvArray + recvLength - 4);
+
+        printf("Checksum of received message: ");
+        printArrayHex((uint8_t*)&checksum, sizeof(checksum));
     }
 
     closesocket(clientSocket);
