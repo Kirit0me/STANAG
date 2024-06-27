@@ -32,6 +32,9 @@ void setupServer2() {
         printf("Received %d bytes: ", bytesReceived);
         printArrayHex(recvArray, bytesReceived);
 
+        Heartbeat hbeat = ByteArrayToHeartbeat(recvArray);
+        printHeartbeat(&hbeat);
+
         size_t recvLength = sizeof(recvArray);
         uint32_t checksum = *(uint32_t*)(recvArray + recvLength - 4);
         

@@ -40,5 +40,12 @@ Header ByteArrayToHeader(uint8_t* byteArray) {
     return header;
 }
 
-
-
+void printHeader(Header* header) {
+    printf("Header:\n");
+    printf("  reserved: 0x%04x\n", header->reserved);
+    printf("  msgLen: %u\n", header->msgLen);
+    printf("  srcId: 0x%08x\n", header->srcId);
+    printf("  destId: 0x%08x\n", header->destId);
+    printf("  msgType: 0x%04x\n", header->msgType);
+    printf("  mesgProp: 0x%04x\n", header->mesgProp);
+}

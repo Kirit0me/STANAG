@@ -56,3 +56,12 @@ Heartbeat ByteArrayToHeartbeat(uint8_t* byteArray) {
 
     return heartbeat;
 }
+
+void printHeartbeat(Heartbeat* heartbeat) {
+    printf("Heartbeat:\n");
+    printHeader(&heartbeat->header);
+    printf("  presenceVec: 0x%02x\n", heartbeat->presenceVec);
+    printf("  timestp: ");
+    printArrayHex(heartbeat->timestp, sizeof(heartbeat->timestp));
+    printf("  optChecksum: 0x%08x\n", heartbeat->optChecksum);
+}

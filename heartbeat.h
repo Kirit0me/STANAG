@@ -13,5 +13,6 @@ typedef struct Heartbeat{
 uint8_t* HeartbeatToByteArray(Heartbeat *heartbeat);
 Heartbeat makeHeartbeat();
 Heartbeat ByteArrayToHeartbeat(uint8_t* byteArray);
+void printHeartbeat(Heartbeat* heartbeat);
 
 #endif

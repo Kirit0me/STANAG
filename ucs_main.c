@@ -2,6 +2,8 @@
 #include "sock_create.h"
 #include "header.h"
 #include "heartbeat.h"
+#include "validation.h"
+#include "acknowledgement.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -61,6 +63,9 @@ void setupServer1() {
     } else {
         printf("Received %d bytes: ", bytesReceived);
         printArrayHex(recvArray, bytesReceived);
+
+        Ack ack = byteArrayToAck(recvArray);
+        printAck(&ack);
 
         uint32_t checksum = *(uint32_t*)(recvArray + recvLength - 4);
 

@@ -24,5 +24,7 @@ typedef struct {
 
 uint8_t* AckToByteArray(Ack *ack);
 Ack makeAck(uint16_t orgMsgType, uint8_t ackTypeInt);
+Ack byteArrayToAck(uint8_t* byteArray);
+void printAck(Ack* ack);
 
 #endif
