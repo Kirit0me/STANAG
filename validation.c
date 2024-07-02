@@ -10,16 +10,16 @@ int extractHeaderAndCRC(uint8_t* byteArray, size_t length, Header* header, uint3
     memcpy(header, byteArray, sizeof(Header));
 
     // Extract the last 4 bytes as CRC
-    memcpy(crc, byteArray + length - 4, sizeof(uint32_t));
+    memcpy(crc, byteArray + length - sizeof(uint32_t), sizeof(uint32_t));
 
     return 0; // Success
 }
 
-int check_msg(uint8_t* byteArr) {
+int check_msg(uint8_t* byteArr, size_t arr_size) {
     Header header;
     uint32_t extractedCRC;
 
-    if (extractHeaderAndCRC(byteArr, 26, &header, &extractedCRC) != 0) {
+    if (extractHeaderAndCRC(byteArr, arr_size, &header, &extractedCRC) != 0) {
         printf("Error: Insufficient data to extract Header and CRC.\n");
         return 1;
     }

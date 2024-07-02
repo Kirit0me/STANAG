@@ -10,6 +10,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <stddef.h>
+#include <sys/timeb.h>
 
 void printArrayHex(uint8_t* arr, size_t length);
 

@@ -3,6 +3,7 @@
 #include "includes.h"
 #include "header.h"
 #include "validation.h"
+#include "heartbeat.h"
 
 typedef enum {
     MSG_RECEIVED = 0,
@@ -23,8 +24,8 @@ typedef struct {
 } Ack;
 
 uint8_t* AckToByteArray(Ack *ack);
-Ack makeAck(uint16_t orgMsgType, uint8_t ackTypeInt);
-Ack byteArrayToAck(uint8_t* byteArray);
+Ack makeAck(uint16_t orgMsgType, uint8_t ackTypeInt, Heartbeat* hbeat);
 void printAck(Ack* ack);
+Ack byteArrayToAck(uint8_t* byteArray);
 
 #endif

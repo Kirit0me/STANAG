@@ -4,8 +4,27 @@
 #include "heartbeat.h"
 #include "validation.h"
 #include "acknowledgement.h"
+#include "cucs.h"
+#include "vehicleid.h"
+#include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib")
+
+#define MSG_TYPE_HEARTBEAT 16002
+#define MSG_TYPE_ACK 17000
+#define MSG_TYPE_CUCS 1
+#define MSG_TYPE_VID 3
+
+HANDLE hUserEvent;
+
+typedef struct {
+    SOCKET clientSocket;
+} ThreadParam;
+
+DWORD WINAPI heartbeatThread(LPVOID param);
+DWORD WINAPI recvThread(LPVOID param);
+DWORD WINAPI cucsThread(LPVOID param);
+DWORD WINAPI userInterruptThread(LPVOID param);
 
 void setupServer1() {
     initializeWinsock();
@@ -40,42 +59,144 @@ void setupServer1() {
         exit(1);
     }
 
-    Heartbeat hbeat = makeHeartbeat();
+    hUserEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-    uint8_t* array = HeartbeatToByteArray(&hbeat);
-    size_t arraySize = 26; 
+    ThreadParam param;
+    param.clientSocket = clientSocket;
 
-    int bytesSent = send(clientSocket, (char*)array, arraySize, 0);
+    HANDLE hHeartbeatThread = CreateThread(NULL, 0, heartbeatThread, &param, 0, NULL);
+    HANDLE hRecvThread = CreateThread(NULL, 0, recvThread, &param, 0, NULL);
+    HANDLE hCucsThread = CreateThread(NULL, 0, cucsThread, &param, 0, NULL);
+    HANDLE hUserInterruptThread = CreateThread(NULL, 0, userInterruptThread, NULL, 0, NULL);
 
-    if (bytesSent == SOCKET_ERROR) {
-        printf("Send failed: %d\n", WSAGetLastError());
-    } else {
-        printf("Sent %d bytes: ", bytesSent);
-        printArrayHex(array, arraySize);
-    }
+    WaitForSingleObject(hHeartbeatThread, INFINITE);
+    WaitForSingleObject(hRecvThread, INFINITE);
+    WaitForSingleObject(hCucsThread, INFINITE);
+    WaitForSingleObject(hUserInterruptThread, INFINITE);
 
-    uint8_t recvArray[34];
-    size_t recvLength = sizeof(recvArray);
-    int bytesReceived = recv(clientSocket, (char*)&recvArray, sizeof(recvArray), 0);
-
-    if (bytesReceived == SOCKET_ERROR) {
-        printf("Receive failed: %d\n", WSAGetLastError());
-    } else {
-        printf("Received %d bytes: ", bytesReceived);
-        printArrayHex(recvArray, bytesReceived);
-
-        Ack ack = byteArrayToAck(recvArray);
-        printAck(&ack);
-
-        uint32_t checksum = *(uint32_t*)(recvArray + recvLength - 4);
-
-        printf("Checksum of received message: ");
-        printArrayHex((uint8_t*)&checksum, sizeof(checksum));
-    }
+    CloseHandle(hHeartbeatThread);
+    CloseHandle(hRecvThread);
+    CloseHandle(hCucsThread);
+    CloseHandle(hUserInterruptThread);
+    CloseHandle(hUserEvent);
 
     closesocket(clientSocket);
     closesocket(serverSocket);
     WSACleanup();
+}
+
+DWORD WINAPI heartbeatThread(LPVOID param) {
+    ThreadParam* pParam = (ThreadParam*)param;
+    SOCKET clientSocket = pParam->clientSocket;
+
+    while (1) {
+        Heartbeat hbeat = makeHeartbeat();
+        uint8_t* array = HeartbeatToByteArray(&hbeat);
+        size_t arraySize = 26;
+
+        int bytesSent = send(clientSocket, (char*)array, arraySize, 0);
+        if (bytesSent == SOCKET_ERROR) {
+            printf("Send failed: %d\n", WSAGetLastError());
+        } else {
+            printf("Sent %d bytes: ", bytesSent);
+            printArrayHex(array, arraySize);
+        }
+
+        free(array);
+        Sleep(2000); // Sleep for 2 seconds
+    }
+
+    return 0;
+}
+
+DWORD WINAPI recvThread(LPVOID param) {
+    ThreadParam* pParam = (ThreadParam*)param;
+    SOCKET clientSocket = pParam->clientSocket;
+    uint8_t recvArray[500];
+    size_t recvLength = sizeof(recvArray);
+
+    while (1) {
+        int bytesReceived = recv(clientSocket, (char*)&recvArray, recvLength, 0);
+
+        if (bytesReceived == SOCKET_ERROR) {
+            printf("Receive failed: %d\n", WSAGetLastError());
+            break;
+        } else if (bytesReceived > 0) {
+            printf("Received %d bytes: ", bytesReceived);
+            printArrayHex(recvArray, bytesReceived);
+
+            Header header;
+            memcpy(&header, recvArray, sizeof(Header));
+            uint16_t msgType = header.msgType;
+
+            switch (msgType) {
+                case MSG_TYPE_HEARTBEAT: {
+                    Heartbeat hbeat = byteArrayToHeartbeat(recvArray);
+                    printHeartbeat(&hbeat);
+                    break;
+                }
+                case MSG_TYPE_ACK: {
+                    Ack ack = byteArrayToAck(recvArray);
+                    printAck(&ack);
+                    break;
+                }
+                case MSG_TYPE_CUCS: {
+                    Cucs cucs = byteArrayToCucs(recvArray);
+                    printCucs(&cucs);
+                    break;
+                }
+                case MSG_TYPE_VID: {
+                    Vehicle vid = ByteArrayToVehicle(recvArray);
+                    printVehicle(&vid);
+                    break;
+                }
+                default:
+                    printf("Unknown message type: %d\n", msgType);
+                    break;
+            }
+
+            uint32_t checksum = *(uint32_t*)(recvArray + bytesReceived - 4);
+            printf("Checksum of received message: ");
+            printArrayHex((uint8_t*)&checksum, sizeof(checksum));
+        }
+    }
+
+    return 0;
+}
+
+DWORD WINAPI cucsThread(LPVOID param) {
+    ThreadParam* pParam = (ThreadParam*)param;
+    SOCKET clientSocket = pParam->clientSocket;
+
+    while (1) {
+        WaitForSingleObject(hUserEvent, INFINITE);
+
+        Cucs cucs = makeCucs();
+        uint8_t* array = CucsToByteArray(&cucs);
+        size_t arraySize = sizeof(Cucs);
+
+        int bytesSent = send(clientSocket, (char*)array, arraySize, 0);
+        if (bytesSent == SOCKET_ERROR) {
+            printf("Send failed: %d\n", WSAGetLastError());
+        } else {
+            printf("Sent %d bytes: ", bytesSent);
+            printArrayHex(array, arraySize);
+        }
+
+        free(array);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI userInterruptThread(LPVOID param) {
+    while (1) {
+        printf("Press Enter to send CUCS packet...\n");
+        getchar();
+        SetEvent(hUserEvent);
+    }
+
+    return 0;
 }
 
 int main() {

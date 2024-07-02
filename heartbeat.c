@@ -32,29 +32,22 @@ uint8_t* HeartbeatToByteArray(Heartbeat *heartbeat) {
 
 Heartbeat makeHeartbeat() {
     Heartbeat hbeat;
-    Header hdr = makeHeader(0x0001, 0x06, 2345, 5678, 16002 ,0xA0C0);
+    Header hdr = makeHeader(0x01, 0x06, 2345, 5678, 16002 ,0xA0C0);
     uint8_t* harr = HeaderToByteArray(&hdr);
 
     hbeat.header = hdr;
     hbeat.presenceVec = 0x01;
-    memcpy(hbeat.timestp, (uint8_t[]){0x01, 0x02, 0x03, 0x04, 0x05}, 5);
+    struct timeb tb;
+    ftime(&tb);
+    uint64_t currentTimeMillis = (uint64_t)tb.time * 1000 + (uint64_t)tb.millitm;
+
+    // Fill the timestamp field with the least significant 5 bytes of currentTimeMillis
+    for (int i = 0; i < 5; ++i) {
+        hbeat.timestp[i] = (currentTimeMillis >> (8 * (4 - i))) & 0xFF;
+    }
     hbeat.optChecksum = crc32(harr, 16);
 
     return hbeat;
-}
-
-Heartbeat ByteArrayToHeartbeat(uint8_t* byteArray) {
-    Heartbeat heartbeat;
-
-    // Convert the first 16 bytes to Header
-    heartbeat.header = ByteArrayToHeader(byteArray);
-
-    // Copy the rest of the Heartbeat fields from the byte array
-    memcpy(&heartbeat.presenceVec, byteArray + 16, sizeof(heartbeat.presenceVec));
-    memcpy(heartbeat.timestp, byteArray + 17, sizeof(heartbeat.timestp));
-    memcpy(&heartbeat.optChecksum, byteArray + 22, sizeof(heartbeat.optChecksum));
-
-    return heartbeat;
 }
 
 void printHeartbeat(Heartbeat* heartbeat) {
@@ -64,4 +57,15 @@ void printHeartbeat(Heartbeat* heartbeat) {
     printf("  timestp: ");
     printArrayHex(heartbeat->timestp, sizeof(heartbeat->timestp));
     printf("  optChecksum: 0x%08x\n", heartbeat->optChecksum);
+}
+
+Heartbeat byteArrayToHeartbeat(uint8_t* byteArray) {
+    Heartbeat heartbeat;
+
+    memcpy(&heartbeat.header, byteArray, sizeof(Header));
+    memcpy(&heartbeat.presenceVec, byteArray + 16, sizeof(heartbeat.presenceVec));
+    memcpy(heartbeat.timestp, byteArray + 17, sizeof(heartbeat.timestp));
+    memcpy(&heartbeat.optChecksum, byteArray + 22, sizeof(heartbeat.optChecksum));
+
+    return heartbeat;
 }

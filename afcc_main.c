@@ -4,6 +4,8 @@
 #include "heartbeat.h"
 #include "acknowledgement.h"
 #include "validation.h"
+#include "cucs.h"
+#include "vehicleid.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -23,40 +25,62 @@ void setupServer2() {
         exit(1);
     }
 
-    uint8_t recvArray[26];
-    int bytesReceived = recv(clientSocket, (char*)&recvArray, sizeof(recvArray), 0);
+    uint8_t recvArray[500];
 
-    if (bytesReceived == SOCKET_ERROR) {
-        printf("Receive failed: %d\n", WSAGetLastError());
-    } else {
-        printf("Received %d bytes: ", bytesReceived);
-        printArrayHex(recvArray, bytesReceived);
+    while (1) {
+        int bytesReceived = recv(clientSocket, (char*)&recvArray, sizeof(recvArray), 0);
 
-        Heartbeat hbeat = ByteArrayToHeartbeat(recvArray);
-        printHeartbeat(&hbeat);
+        if (bytesReceived == SOCKET_ERROR) {
+            printf("Receive failed: %d\n", WSAGetLastError());
+            break;
+        } else if (bytesReceived > 0) {
+            printf("Received %d bytes: ", bytesReceived);
+            printArrayHex(recvArray, bytesReceived);
 
-        size_t recvLength = sizeof(recvArray);
-        uint32_t checksum = *(uint32_t*)(recvArray + recvLength - 4);
-        
-        printf("Checksum of received message: ");
-        printArrayHex((uint8_t*)&checksum, sizeof(checksum));
+            Header header;
+            memcpy(&header, recvArray, sizeof(Header));
+            uint16_t msgType = header.msgType;
 
-        // Conditional response
-        if (check_msg(recvArray)) {
-            Ack ack = makeAck(16002, check_msg(recvArray));
+            switch (msgType) {
+                case 16002: { // Heartbeat
+                    Heartbeat hbeat = byteArrayToHeartbeat(recvArray);
+                    printHeartbeat(&hbeat);
 
-            uint8_t* responseArray = AckToByteArray(&ack);
-            size_t responseSize = 34;  
+                    Ack ack = makeAck(16002, check_msg(HeartbeatToByteArray(&hbeat), 26), &hbeat );
+                    uint8_t* responseArray = AckToByteArray(&ack);
+                    size_t responseSize = 34;  
 
-            int bytesSent = send(clientSocket, (char*)responseArray, responseSize, 0);
-            if (bytesSent == SOCKET_ERROR) {
-                printf("Send failed: %d\n", WSAGetLastError());
-            } else {
-                printf("Sent %d bytes: ", bytesSent);
-                printArrayHex(responseArray, responseSize);
+                    int bytesSent = send(clientSocket, (char*)responseArray, responseSize, 0);
+                    if (bytesSent == SOCKET_ERROR) {
+                        printf("Send failed: %d\n", WSAGetLastError());
+                    } else {
+                        printf("Sent %d bytes: ", bytesSent);
+                        printArrayHex(responseArray, responseSize);
+                    }
+
+                    free(responseArray); // Don't forget to free the allocated memory
+                    break;
+                }
+                case 1: { // CUCS
+                    Vehicle vehicle = makeVehicle();
+                    uint8_t* vehicleArray = VehicleToByteArray(&vehicle);
+                    size_t vehicleSize = sizeof(Vehicle);  
+
+                    int bytesSent = send(clientSocket, (char*)vehicleArray, vehicleSize, 0);
+                    if (bytesSent == SOCKET_ERROR) {
+                        printf("Send failed: %d\n", WSAGetLastError());
+                    } else {
+                        printf("Sent %d bytes: ", bytesSent);
+                        printArrayHex(vehicleArray, vehicleSize);
+                    }
+
+                    free(vehicleArray); // Don't forget to free the allocated memory
+                    break;
+                }
+                default:
+                    printf("Unknown message type: %d\n", msgType);
+                    break;
             }
-
-            free(responseArray); // Don't forget to free the allocated memory
         }
     }
 
